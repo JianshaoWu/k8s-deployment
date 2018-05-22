@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: logstash
+  namespace: iam
+  labels:
+    app: logstash
+spec:
+  selector:
+    matchLabels:
+      app: logstash
+  template:
+    metadata:
+      labels:
+        app: logstash
+    spec:
+      containers:
+      - name: logstash
+        image: docker.elastic.co/logstash/logstash:5.0.2
+        resources:
+          limits:
+            memory: 1024Mi
+          requests:
+            cpu: 200m
+            memory: 512Mi
+        volumeMounts:
+        - name: setting-volume
+          mountPath: /usr/share/logstash/config
+        - name: pipeline-volume
+          mountPath: /usr/share/logstash/pipeline
+        - name: patterns-volume
+          mountPath: /usr/share/logstash/patterns
+        - name: sincedb-volume
+          mountPath: /var/lib/logstash-sincedb
+        - name: log-volume
+          mountPath: /var/log/micro-services
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: setting-volume
+        configMap:
+          name: logstash-config
+          items:
+          - key: jvm.options
+            path: jvm.options
+          - key: log4j2.properties
+            path: log4j2.properties
+          - key: logstash.yml
+            path: logstash.yml
+          - key: startup.options
+            path: startup.options
+      - name: pipeline-volume
+        configMap:
+          name: logstash-config
+          items:
+          - key: shipper.conf
+            path: shipper.conf
+      - name: patterns-volume
+        configMap:
+          name: logstash-config
+          items:
+          - key: ece-patterns
+            path: ece-patterns
+      - name: sincedb-volume
+        hostPath:
+          path: /var/lib/logstash-sincedb
+      - name: log-volume
+        hostPath:
+          path: /var/log/micro-services

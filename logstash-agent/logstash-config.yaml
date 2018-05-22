@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: iam
+data:
+  jvm.options: |
+    -Xms256m
+    -Xmx256m
+    
+    -XX:+UseParNewGC
+    -XX:+UseConcMarkSweepGC
+    -XX:CMSInitiatingOccupancyFraction=75
+    -XX:+UseCMSInitiatingOccupancyOnly
+    
+    -Djava.awt.headless=true
+    -Dfile.encoding=UTF-8
+    
+    -Djruby.compile.invokedynamic=true
+    -Djruby.jit.threshold=0
+    
+    -XX:+HeapDumpOnOutOfMemoryError
+    
+    -Djava.security.egd=file:/dev/urandom
+  log4j2.properties: |
+    status = error
+    name = LogstashPropertiesConfig
+    
+    appender.console.type = Console
+    appender.console.name = plain_console
+    appender.console.layout.type = PatternLayout
+    appender.console.layout.pattern = [%d{ISO8601}][%-5p][%-25c] %m%n
+    
+    appender.json_console.type = Console
+    appender.json_console.name = json_console
+    appender.json_console.layout.type = JSONLayout
+    appender.json_console.layout.compact = true
+    appender.json_console.layout.eventEol = true
+    
+    rootLogger.level = ${sys:ls.log.level}
+    rootLogger.appenderRef.console.ref = ${sys:ls.log.format}_console
+  startup.options: |
+    LS_HOME=/usr/share/logstash
+    LS_SETTINGS_DIR="${LS_HOME}/config"
+    LS_OPTS="--path.settings ${LS_SETTINGS_DIR}"
+    LS_JAVA_OPTS=""
+    LS_PIDFILE=/var/run/logstash.pid
+    LS_USER=logstash
+    LS_GROUP=logstash
+    LS_GC_LOG_FILE=/var/log/logstash/gc.log
+    LS_OPEN_FILES=16384
+    LS_NICE=19
+    SERVICE_NAME="logstash"
+    SERVICE_DESCRIPTION="logstash"
+  logstash.yml: |
+    http.host: "0.0.0.0"
+  shipper.conf: |
+    input {
+      file {
+        path => "/var/log/micro-services/*/*.log"
+        sincedb_path => "/var/lib/logstash-sincedb/serverlog.sincedb"
+        type => "serverlog"
+        codec => multiline {
+          pattern => "^####"
+          negate => true
+          what => "previous"
+        }
+      }
+    }
+    
+    filter {
+      if ([type] == "serverlog") {
+        grok {
+          patterns_dir => "patterns/log-patterns"
+          match => ["message","%{SERVERLOG}"]
+        }
+        if ("_grokparsefailure" in [tags]) {
+            drop{}
+        }
+        date {
+          match => [ "log_time", "yyyy-MM-dd HH:mm:ss.SSS"]
+        }
+      }
+    }
+    
+    output {
+      elasticsearch {
+        hosts=>["elasticsearch:9200"]
+      }
+    }
+  log-patterns: |
+    NO_COMMA [^,]*
+    NO_ANGLE_BRACKET [^>]*
+    ANYQUOTE "[^"]*"|[^,]*
+    NO_SPACE [^\s]*
+    MORE_SPACE \s+
+    NO_RIGHT_SQUARE_BRACKET [^\]]*
+    NO_RIGHT_BRACKET [^)]*
+    
+    SERVERLOG ^#+<%{NO_ANGLE_BRACKET:log_time}> <%{NO_ANGLE_BRACKET:log_level}> <%{NO_ANGLE_BRACKET:logger}> <%{NO_ANGLE_BRACKET}> <%{NO_ANGLE_BRACKET:trace_id}>
