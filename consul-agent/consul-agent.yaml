@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: consul-ds
+  namespace: iam
+  labels:
+    app: consul-agent
+spec:
+  selector:
+    matchLabels:
+      app: consul-agent
+  template:
+    metadata:
+      labels:
+        app: consul-agent
+    spec:
+      hostNetwork: true
+      containers:
+      - name: consul
+        image: consul:1.0.6
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        args:
+          - "agent"
+          - "-bind=$(HOST_IP)"
+          - "-client=$(HOST_IP)"
+          - "-retry-join=192.168.8.239"
+          - "-encrypt=rmbfwIdvpZgjWJQwr01zaA=="
+        env:
+        - name: CONSUL_LOCAL_CONFIG
+          value: |
+            {"leave_on_terminate": true}
+        - name: HOST_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+      terminationGracePeriodSeconds: 20
