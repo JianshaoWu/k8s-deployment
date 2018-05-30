@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: consul-ds
-  namespace: iam
+  namespace: platform
   labels:
     app: consul-agent
 spec:

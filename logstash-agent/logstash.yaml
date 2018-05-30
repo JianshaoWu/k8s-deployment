@@ -1,8 +1,8 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: logstash
-  namespace: iam
+  name: logstash-ds
+  namespace: platform
   labels:
     app: logstash
 spec:

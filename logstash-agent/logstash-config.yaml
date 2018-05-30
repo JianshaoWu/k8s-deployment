@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: logstash-config
-  namespace: iam
+  namespace: platform
 data:
   jvm.options: |
     -Xms256m
